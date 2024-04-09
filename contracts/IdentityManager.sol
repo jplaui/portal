@@ -11,6 +11,7 @@ contract IdentityManager {
         string ipfsCircuitMetadata; // ipfs circuit
         string eventHash; // verification event hash
         uint256 timestamp;
+        int id;
         int version;
     }
 
@@ -18,6 +19,7 @@ contract IdentityManager {
         string value; // value
         string statement; // phi
         uint256 timestamp;
+        int id;
         int version;
     }
 
@@ -26,12 +28,13 @@ contract IdentityManager {
         address attestor; // issuer
         uint256 expires; // unix timestamp
         uint256 timestamp;
-        string claimId;
+        int claimId;
+        int id;
     }
 
     struct Revocation {
         address attestedTo;
-        string attestationId;
+        int attestationId;
         string status;
         uint256 timestamp;
     }
@@ -42,7 +45,7 @@ contract IdentityManager {
     //events
     event NewClaim(string key, string value, bool isPrivate, int version);
     event NewAttestation(address indexed identity, string key, uint256 timestamp);
-    event AttestationRevoked(address indexed identity, string id, string reason);
+    event AttestationRevoked(address indexed identity, int id, string reason);
 
     mapping(string => PrivateClaim) public privateClaims;
     mapping(string => PublicClaim) public publicClaims;
@@ -62,10 +65,10 @@ contract IdentityManager {
     }
 
     function setPublicClaim(string calldata key, string calldata value,
-        string calldata statement, uint256 timestamp) external authorised {
-        int version = publicClaims[key].version + 1;
-        publicClaims[key] = PublicClaim(value, statement, timestamp, version);
-        emit NewClaim(key, value, false, version);
+        string calldata statement, uint256 timestamp, int id) external authorised {
+        int version = publicClaims[key].version;
+        publicClaims[key] = PublicClaim(value, statement, timestamp, id, version + 1);
+        emit NewClaim(key, value, false, version + 1);
     }
 
     function setPrivateClaim(
@@ -74,10 +77,11 @@ contract IdentityManager {
         string calldata statement,
         string calldata ipfsURI,
         string calldata eventHash,
-        uint256 timestamp
+        uint256 timestamp,
+        int identifier
     ) external authorised {
         int version = privateClaims[key].version;
-        privateClaims[key] = PrivateClaim(value, statement, ipfsURI, eventHash, timestamp, version + 1);
+        privateClaims[key] = PrivateClaim(value, statement, ipfsURI, eventHash, timestamp, identifier, version + 1);
         emit NewClaim(key, value, true, version + 1);
     }
 
@@ -86,11 +90,12 @@ contract IdentityManager {
         address attestor,
         uint256 expires,
         bytes calldata signature,
-        string calldata claimId
+        int claimId,
+        int id
     ) external authorised {
         // check if record not exists
         require(attestations[key].timestamp == 0);
-        attestations[key] = Attestation(signature, attestor, expires, block.timestamp, claimId);
+        attestations[key] = Attestation(signature, attestor, expires, block.timestamp, claimId, id);
         emit NewAttestation(attestor, key, expires);
     }
 
@@ -98,10 +103,10 @@ contract IdentityManager {
         string calldata key,
         string calldata reason,
         address attestedTo,
-        string calldata attestationId
+        int attestationId
     ) external authorised {
         revocations[key] = Revocation(attestedTo, attestationId, reason, block.timestamp);
-        emit AttestationRevoked(attestations[key].attestor, key, reason);
+        emit AttestationRevoked(attestations[key].attestor, attestations[key].id, reason);
     }
 
     function setClaimURI(

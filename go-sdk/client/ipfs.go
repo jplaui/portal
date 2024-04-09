@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/ipfs/kubo/client/rpc"
+	"fmt"
 	"io"
+	"time"
+
+	"github.com/ipfs/kubo/client/rpc"
 
 	"log"
 	"net/http"
@@ -99,6 +102,7 @@ func (cli *IpfsClient) Retrieve(uri string, ipns bool) (map[string]string, error
 		hash = uri
 	}
 
+	t1 := time.Now()
 	resp, err := cli.Ipfs.Request("cat", hash).Send(context.Background())
 	if err != nil {
 		return nil, err
@@ -106,6 +110,7 @@ func (cli *IpfsClient) Retrieve(uri string, ipns bool) (map[string]string, error
 	if resp.Error != nil {
 		return nil, *resp.Error
 	}
+	fmt.Println("requesting from IPFS tooK", time.Since(t1))
 
 	return readJSON(resp.Output)
 

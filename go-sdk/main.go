@@ -6,20 +6,17 @@ import (
 	"crypto/sha256"
 	"flag"
 	"fmt"
+	merklecombined "go-sdk/circuits/merklecombined"
+	"go-sdk/simulation"
+	"os"
+	"time"
+
 	"github.com/consensys/gnark-crypto/accumulator/merkletree"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/plonk"
-	"github.com/consensys/gnark/frontend/cs/scs"
-	"github.com/consensys/gnark/test"
 	"github.com/joho/godotenv"
-	merklecombined "go-sdk/circuits/merklecombined"
-	"go-sdk/simulation"
-	"os"
 
-	"github.com/consensys/gnark/frontend"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	circuitutils "go-sdk/circuits"
 	mymerkletree "go-sdk/circuits/merkletree"
 	"go-sdk/circuits/mimc"
@@ -28,6 +25,14 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/consensys/gnark/backend/plonkfri"
+	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/scs"
+	"github.com/consensys/gnark/test"
 )
 
 var (
@@ -47,8 +52,10 @@ const (
 )
 
 func main() {
+	fmt.Println("test")
 	err := godotenv.Load()
 	if err != nil {
+		fmt.Println("err")
 		return
 	}
 	var (
@@ -58,7 +65,6 @@ func main() {
 		chainStr            = os.Getenv("CHAIN_ID")
 		registryAddr        = os.Getenv("REGISTRY_CONTRACT")
 		userManagerAddr     = os.Getenv("USER_IDENTITY_CONTRACT")
-		ownerManagerAddr    = os.Getenv("ATTESTOR_IDENTITY_CONTRACT")
 		ownerWalletAddr     = os.Getenv("OWNER_WALLET")
 		userWalletAddr      = os.Getenv("USER_WALLET")
 		attestorManagerAddr = os.Getenv("ATTESTOR_IDENTITY_CONTRACT")
@@ -68,13 +74,11 @@ func main() {
 	ownerPrivStr := os.Getenv("OWNER_PRIVATE_KEY")
 	userPrivStr := os.Getenv("USER_PRIVATE_KEY")
 	managerAddr := common.HexToAddress(userManagerAddr)
-	ownerManager := common.HexToAddress(ownerManagerAddr)
 	ownerAccount := common.HexToAddress(ownerWalletAddr)
 	userAccount := common.HexToAddress(userWalletAddr)
 	ownerPriv, _ := crypto.HexToECDSA(ownerPrivStr)
 	userPriv, _ := crypto.HexToECDSA(userPrivStr)
-	fmt.Printf("Loaded env variables rpc url: %s,  ipfsUrl: %s, ownerPriv: %s,"+
-		" userPriv: %s \n", conn, ipfsConn, ownerPrivStr, userPrivStr)
+	println("Loaded env variables", conn, ipfsConn, ownerPrivStr, userPrivStr)
 
 	reader := client.NewReader(client.Config{Rawurl: conn, ChainId: chainId})
 	ownerSigner := client.NewSigner(*ownerPriv, ownerAccount.Bytes(), client.Config{
@@ -121,13 +125,13 @@ func main() {
 		if err != nil {
 			log.Fatal("Could not register identity", err)
 		}
-		receipt, err = userSigner.WaitForReceipt(receipt.TxHash)
-		if err != nil {
-			return
-		}
+		// receipt, err = userSigner.WaitForReceipt(receipt.TxHash)
+		// if err != nil {
+		// 	return
+		// }
 
 		fmt.Println("Identity registered for user:", userAccount.Hex())
-		receipt, err = client.RegisterIdentity(regClient, ownerSigner, ownerSigner, ownerManager)
+		receipt, err = client.RegisterIdentity(regClient, userSigner, ownerSigner, managerAddr)
 		receipt, err = userSigner.WaitForReceipt(receipt.TxHash)
 		if err != nil {
 			return
@@ -139,11 +143,13 @@ func main() {
 	if *fClaim {
 		regClient := client.NewRegistryClient(registryAddr, *reader)
 		// check identity is registered
+		t1 := time.Now()
 		manager, err := client.GetManager(regClient, userAccount)
 		if err != nil {
 			fmt.Println("Error getting manager:", err)
 			return
 		}
+		fmt.Println("get Wallet address from chain took", time.Since(t1))
 		log.Printf("Manager address for user %s: %s\n", userAccount.Hex(), manager)
 
 		// now user can set public claim by it's own manager
@@ -157,8 +163,10 @@ func main() {
 			return
 		}
 		// get public claim here
+		fmt.Println("heee")
 		value, err := client.GetPublicClaim(manClient, "birthDate")
 		if err != nil {
+			fmt.Println("error getting claim")
 			return
 		}
 
@@ -238,57 +246,32 @@ func main() {
 
 	if *fSimulate {
 		simType := flag.Arg(0)
-		fmt.Printf("Reading .env file: Registry address: %s, Manager address: %s\n", registryAddr, userManagerAddr)
 		switch simType {
 		default:
 			fmt.Println("No type specified. Please specify type: ipfs, onchain, ipfs-on-chain, deployment. e.g.: go run main.go -sim onchain")
 			return
-
-		//case "ipfs-on-chain":
-		//	simulation.SimulateIpfsOnChainPublicClaim(registryAddr, userAccount, userSigner, reader, ipfsConn, false)
-		//case "onchain":
-		//	simulation.SimulateOnChainPublicClaims(registryAddr, userAccount, userSigner, reader, false)
+		case "ipfs-on-chain":
+			simulation.SimulateIpfsOnChainPublicClaim(registryAddr, userAccount, userSigner, reader, ipfsConn)
+		case "onchain":
+			simulation.SimulateOnChainPublicClaims(registryAddr, userAccount, userSigner, reader)
 		case "ipfs":
 			simulation.SimulateIPFSConnection(ipfsConn)
 		case "deployment":
-			simulation.SimulateContractDeployment(userSigner, ownerSigner, reader)
-		case "mimcDeployment":
-			simulation.SimulateMimcCircuitDeployment(ownerSigner, ipfsConn, registryAddr, reader)
-		case "merkleDeployment":
-			simulation.SimulateMerkleCircuitDeployment(ownerSigner, ipfsConn, registryAddr, reader)
-		//case "mimcClaim":
-		//	simulation.SimulatePrivateClaim(userSigner, reader, ipfsConn, registryAddr, userManagerAddr, "MimcCombined")
-		//case "merkleClaim":
-		//	simulation.SimulatePrivateMerkleClaim(userSigner, reader, ipfsConn, registryAddr, userManagerAddr, "MerkleCombined")
-		case "claim":
-			claimType := flag.Arg(1)
-			if claimType == "privateMerkle" {
-				simulation.SimulatePrivateMerkleClaim(userSigner, reader, ipfsConn, registryAddr, userManagerAddr, "MerkleCombined")
-			} else if claimType == "privateMerkleLive" {
-				simulation.SimulateMerkleLiveVerification(userSigner, reader, ipfsConn, userManagerAddr)
-			} else if claimType == "privateMimc" {
-				simulation.SimulatePrivateClaim(userSigner, reader, ipfsConn, registryAddr, userManagerAddr, "MimcCombined")
-			} else if claimType == "publicOnChain" {
-				simulation.SimulateOnChainPublicClaims(registryAddr, userAccount, userSigner, reader)
-			} else if claimType == "publicIpfs" {
-				simulation.SimulateIpfsOnChainPublicClaim(registryAddr, userAccount, userSigner, reader, ipfsConn)
-			}
+			simulation.SimulateContractDeployment(userSigner, ownerSigner)
+		case "circuitDeployment":
+			//deploy  circuit verifier
+			// simulation.SimulateMimcCircuitDeployment(userSigner, ipfsConn, registryAddr, reader)
+			simulation.SimulateMerkleCircuitDeployment(userSigner, ipfsConn, registryAddr, reader)
+			//deployment.CreateCircuitBindings("MimcComp")
+			//deployment.DeployCircuit(userSigner)
 		case "attestation":
-			claimType := flag.Arg(1)
-			if claimType == "private" {
-				fmt.Println("Running attestation simulation... make sure you have deployed registry and manager contracts on chain")
-				simulation.SimulateAttestation(userSigner, ownerSigner, reader, ipfsConn, registryAddr, userManagerAddr)
-			} else if claimType == "publicOnChain" {
-				fmt.Println("Running attestation on-chain simulation... make sure you have deployed registry and manager contracts on chain")
-				simulation.SimulateAttestationPublicOnChain(userSigner, ownerSigner, reader, ipfsConn, registryAddr, userManagerAddr)
-			} else if claimType == "publicIpfs" {
-				fmt.Println("Running attestation on-ipfs simulation... make sure you have deployed registry and manager contracts on chain")
-				simulation.SimulateAttestationPublicIpfs(userSigner, ownerSigner, reader, ipfsConn, registryAddr, userManagerAddr)
-			}
-
+			fmt.Println("Running attestation simulation... make sure you have deployed registry and manager contracts on chain")
+			fmt.Printf("Reading .env file: Registry address: %s, Manager address: %s\n", registryAddr, userManagerAddr)
+			simulation.SimulateAttestation(userSigner, ownerSigner, reader, ipfsConn, registryAddr, userManagerAddr)
 		case "revocation":
 			fmt.Println("Running attestation simulation... make sure you have deployed registry and manager contracts on chain")
-			simulation.SimulateRevocation(userSigner, ownerSigner, reader, ipfsConn, userManagerAddr, attestorManagerAddr)
+			fmt.Printf("Reading .env file: Registry address: %s, Manager address: %s\n", registryAddr, userManagerAddr)
+			simulation.SimulateRevocation(userSigner, ownerSigner, reader, ipfsConn, registryAddr, userManagerAddr, attestorManagerAddr)
 		}
 
 	}
@@ -301,7 +284,7 @@ func main() {
 		)
 
 		ipfsCli := client.NewIpfsClient(ipfsConn)
-		var circuit mimc.MimcCombined
+		var circuit mimc.MimcComp
 
 		// generate CompiledConstraintSystem
 		ccs, err := frontend.Compile(curve.ScalarField(), scs.NewBuilder, &circuit)
@@ -312,7 +295,7 @@ func main() {
 		/*
 			Prover part
 		*/
-		assignment := mimc.MimcCombined{
+		assignment := mimc.MimcComp{
 			Input:      pre,
 			Threshold:  threshold,
 			Digest:     digest,
@@ -356,7 +339,7 @@ func main() {
 		/*
 			Serialize part for sending to remote verifier
 		*/
-		mimcCompSerialize := circuitutils.Serialize(ccs, srs, wt, vk, pk, proof, "mimc", "0x0")
+		mimcCompSerialize := circuitutils.Serialize(ccs, wt, vk, pk, proof, "mimc", "0x0")
 		mimcCompMapping, _ := circuitutils.PublishCircuitOnIpfs(ipfsCli, &mimcCompSerialize)
 		deserializedMimcComp := circuitutils.BuildCircuitFrom(mimcCompMapping, ipfsCli)
 		mimcCompWitness, err := deserializedMimcComp.Wt.Public()
@@ -463,7 +446,7 @@ func main() {
 			log.Fatal("prove computation failed...")
 		}
 
-		merkleSerialize := circuitutils.Serialize(cc, srs, w, vk, pk, proof, "Merkle", "0x0")
+		merkleSerialize := circuitutils.Serialize(cc, w, vk, pk, proof, "Merkle", "0x0")
 		merkleMapping, _ := circuitutils.PublishCircuitOnIpfs(ipfsCli, &merkleSerialize)
 		deserializedMerkle := circuitutils.BuildCircuitFrom(merkleMapping, ipfsCli)
 		merklePublicWit, err := deserializedMerkle.Wt.Public()
@@ -558,28 +541,57 @@ func main() {
 		if err != nil {
 			log.Fatal("Couldn't set witness ", err)
 		}
+		publicWit, _ := w.Public()
 
 		srs, err := test.NewKZGSRS(cc)
 		if err != nil {
 			log.Fatal("test.NewKZGSRS(ccs)")
 		}
+
+		start := time.Now()
+		pk, vk, err := plonkfri.Setup(cc)
+		if err != nil {
+			log.Fatal("plonkFRI.Setup", err)
+		}
+		fmt.Println("plonkFRI setup time:", time.Since(start))
+
+		// prove
+		start = time.Now()
+		correctProof, err := plonkfri.Prove(cc, pk, w)
+		if err != nil {
+			log.Fatal("plonkFRI.Prove", err)
+		}
+		fmt.Println("plonkFRI prove time:", time.Since(start))
+
+		start = time.Now()
+		err = plonkfri.Verify(correctProof, vk, publicWit)
+		if err != nil {
+			log.Fatal("plonkFRI.Verify", err)
+		}
+		fmt.Println("plonkFRI verify time:", time.Since(start))
+
 		// groth16 zkSNARK: Setup
-		pk, vk, err := plonk.Setup(cc, srs)
+		t3 := time.Now()
+		pk2, vk2, err := plonk.Setup(cc, srs)
 		if err != nil {
 			log.Fatal("plonk.Setup", err)
 		}
+		fmt.Println("setup took:", time.Since(t3))
 		// groth16: Prove & Verify
-		proof, err := plonk.Prove(cc, pk, w)
+		t2 := time.Now()
+		proof, err := plonk.Prove(cc, pk2, w)
 		if err != nil {
 			log.Fatal("prove computation failed...", err)
 		}
+		fmt.Println("prove took:", time.Since(t2))
 
-		publicWit, _ := w.Public()
-		err = plonk.Verify(proof, vk, publicWit)
+		t1 := time.Now()
+		err = plonk.Verify(proof, vk2, publicWit)
 		if err != nil {
 			log.Fatal("Verify failed from local verifier", err)
 			return
 		}
+		fmt.Println("verify took:", time.Since(t1))
 
 	}
 

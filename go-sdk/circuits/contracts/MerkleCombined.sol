@@ -28,10 +28,10 @@ contract PlonkVerifier {
   uint256 private constant G2_SRS_0_Y_0 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
   uint256 private constant G2_SRS_0_Y_1 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
   
-  uint256 private constant G2_SRS_1_X_0 = 15130486143057130806517901932548630861527462275122362687801176060063459599264;
-  uint256 private constant G2_SRS_1_X_1 = 12425087129823278540278315642694825916150274884710099189942136319009778557819;
-  uint256 private constant G2_SRS_1_Y_0 = 17814794724412019157155850977682206560076681323126411303468842007887551772223;
-  uint256 private constant G2_SRS_1_Y_1 = 182272940222564221509536730229297273933369706684979584061698740590445314281;
+  uint256 private constant G2_SRS_1_X_0 = 7343131760598023181613802466547248719774407969606329332035815385188892737702;
+  uint256 private constant G2_SRS_1_X_1 = 14533786651004426128104834203342806888748176973294086625319375749501253699402;
+  uint256 private constant G2_SRS_1_Y_0 = 14110117794928221831992724731488444946258548072818913553656071371302261427062;
+  uint256 private constant G2_SRS_1_Y_1 = 9489573796077756538125174016073172357393564872375771554736322089066241448139;
   
   uint256 private constant G1_SRS_X = 1;
   uint256 private constant G1_SRS_Y = 2;
@@ -41,25 +41,25 @@ contract PlonkVerifier {
   uint256 private constant VK_DOMAIN_SIZE = 16384;
   uint256 private constant VK_INV_DOMAIN_SIZE = 21886906919515554563358329182406612413066885618409173013477031200480436436993;
   uint256 private constant VK_OMEGA = 20619701001583904760601357484951574588621083236087856586626117568842480512645;
-  uint256 private constant VK_QL_COM_X = 5389980261478958474059338224596336537578713341451086882363240688783293062452;
-  uint256 private constant VK_QL_COM_Y = 15341507464537856560095767050147074358991711406522820308837730222871095460829;
-  uint256 private constant VK_QR_COM_X = 16037521334297626346004794621842384678657517498671239967885675814924691203512;
-  uint256 private constant VK_QR_COM_Y = 7596556809613924742956408161874929259847351041203044978291032222686266814036;
-  uint256 private constant VK_QM_COM_X = 3985987601496912935040345192155772044971532406035568032603615738622553571363;
-  uint256 private constant VK_QM_COM_Y = 2640011330979496952461729295040027147753131555321331007781605080254827524668;
-  uint256 private constant VK_QO_COM_X = 21048781807498988317853434850130846242241277475171440691461038203547273938395;
-  uint256 private constant VK_QO_COM_Y = 20021553480225593736847245412280411994109643731527259044450715201965095162232;
-  uint256 private constant VK_QK_COM_X = 19609592311802694973915525022849628771382060227199665023587354162333066167932;
-  uint256 private constant VK_QK_COM_Y = 11716030309497557411905289252026222823655048913022047098653749840429170704691;
+  uint256 private constant VK_QL_COM_X = 6459141749939204548277758758531118075454110715507551474149340872793931630753;
+  uint256 private constant VK_QL_COM_Y = 13834816459303830929970966397493100245938556760236671643812770310146523539950;
+  uint256 private constant VK_QR_COM_X = 8348213157452900808049428433547621320175938665435889555976491544792024532603;
+  uint256 private constant VK_QR_COM_Y = 2661647929085899723459563970963197413210245449498745978218977894574567291478;
+  uint256 private constant VK_QM_COM_X = 7501139848597981603138050668351548189858389782126559430959448965040451683862;
+  uint256 private constant VK_QM_COM_Y = 10051139421799831764357688528771435478664416028831275962153959717317447245920;
+  uint256 private constant VK_QO_COM_X = 18879256959893347288179972181430952094583244698196866950919272052011727919739;
+  uint256 private constant VK_QO_COM_Y = 8219265706252571935363552222931296109243615511725237981164766362726806546655;
+  uint256 private constant VK_QK_COM_X = 3416035682941837413803223688453241293600899426724126455533016714995293438163;
+  uint256 private constant VK_QK_COM_Y = 1640840134874335885174225755449386604122230040711117210948370733945501526182;
   
-  uint256 private constant VK_S1_COM_X = 9192340284754729600670819128673819826300387440740159461399915813281482288106;
-  uint256 private constant VK_S1_COM_Y = 8790404819807843884329170938568936067764526232696180767920310419241592793866;
+  uint256 private constant VK_S1_COM_X = 2765971868767452338560587629460920619320887334700020385408752577449389591237;
+  uint256 private constant VK_S1_COM_Y = 8625911861738860108342865468429450933387653928339607790730588679218334797645;
   
-  uint256 private constant VK_S2_COM_X = 1880170741663694172999017519574186849085081557921239487419865691335707118743;
-  uint256 private constant VK_S2_COM_Y = 10998921482905627147175367953248309858101402022128839434191106893794325056083;
+  uint256 private constant VK_S2_COM_X = 19993300949879920752988740656257763104822333648996462099616120611231286009967;
+  uint256 private constant VK_S2_COM_Y = 13977133530970703835616556042651346944565434900119212222834768272008359388640;
   
-  uint256 private constant VK_S3_COM_X = 3633201734317181689708046274123918205373544852964155987775432298006526364942;
-  uint256 private constant VK_S3_COM_Y = 4512875447888155562594630091182497717667415546732446735957536936290977685826;
+  uint256 private constant VK_S3_COM_X = 16187047302194489452124265760109488148343898336876332868609769103333802281250;
+  uint256 private constant VK_S3_COM_Y = 19079681528864146443680719107454415369900558196062725912955278403560303738979;
   
   uint256 private constant VK_COSET_SHIFT = 5;
   
@@ -156,49 +156,15 @@ contract PlonkVerifier {
   uint256 private constant ERROR_STRING_ID = 0x08c379a000000000000000000000000000000000000000000000000000000000; // selector for function Error(string)
 
   
-  function uint256ToString(uint256 value) public pure returns (string memory) {
-	// Base case
-	if (value == 0) {
-		return "0";
-	}
-	// Calculate the length of the string representation
-	uint256 temp = value;
-	uint256 digits;
-	while (temp != 0) {
-		digits++;
-		temp /= 10;
-	}
-	// Allocate string memory and fill in the digits
-	bytes memory buffer = new bytes(digits);
-	while (value != 0) {
-		digits -= 1;
-		buffer[digits] = bytes1(uint8(48 + value % 10));
-		value /= 10;
-	}
-	return string(buffer);
-  }
-	
-  function setNonce() public {
-	string memory newNonce = string.concat(uint256ToString(block.prevrandao), "0");
-    nonces[msg.sender] = newNonce;
-  }
-	
-  mapping(address => string) public nonces;
-	
-  event ProofVerified(address indexed identity);
-  event VerificationFailed(address indexed identity);
+  
   /// Verify a Plonk proof.
   /// Reverts if the proof or the public inputs are malformed.
   /// @param proof serialised plonk proof (using gnark's MarshalSolidity)
   /// @param public_inputs (must be reduced)
   /// @return success true if the proof passes false otherwise
   function Verify(bytes calldata proof, uint256[] calldata public_inputs) 
-  external returns(bool success) {
-	bool success = false;
-    string memory nonce = nonces[msg.sender];
-    bytes memory strBytes = bytes(nonce);
-    require(strBytes.length != 0, "verifier-invalid-nonce");
-    require(strBytes[bytes(strBytes).length - 1] == '0', "verifier-invalid-nonce");
+  public view returns(bool success) {
+
     assembly {
 
       let mem := mload(0x40)
@@ -319,7 +285,7 @@ contract PlonkVerifier {
         }
       }
     
-      /// Checks that the public inputs are &lt; R_MOD.
+      /// Checks that the public inputs are < R_MOD.
       /// @param s number of public inputs
       /// @param p pointer to the public inputs array
       function check_inputs_size(s, p) {
@@ -343,7 +309,7 @@ contract PlonkVerifier {
         }
       }
     
-      /// Checks if the multiple openings of the polynomials are &lt; R_MOD.
+      /// Checks if the multiple openings of the polynomials are < R_MOD.
       /// @param aproof pointer to the beginning of the proof
       /// @dev the 'a' prepending proof is to have a local name
       function check_proof_openings_size(aproof) {
@@ -1108,7 +1074,7 @@ contract PlonkVerifier {
         }
       }
 
-      /// @notice dst &lt;- dst + [s]src (Elliptic curve)
+      /// @notice dst <- dst + [s]src (Elliptic curve)
       /// @param dst pointer accumulator point storing the result
       /// @param src pointer to the point to multiply and add
       /// @param s scalar
@@ -1127,7 +1093,7 @@ contract PlonkVerifier {
         }
       }
 
-      /// @notice dst &lt;- dst + [s]src (Elliptic curve)
+      /// @notice dst <- dst + [s]src (Elliptic curve)
       /// @param dst pointer accumulator point storing the result
       /// @param src pointer to the point to multiply and add (on calldata)
       /// @param s scalar
@@ -1146,7 +1112,7 @@ contract PlonkVerifier {
         }
       }
 
-      /// @notice dst &lt;- dst + src*s (Fr) dst,src are addresses, s is a value
+      /// @notice dst <- dst + src*s (Fr) dst,src are addresses, s is a value
       /// @param dst pointer storing the result
       /// @param src pointer to the scalar to multiply and add (on calldata)
       /// @param s scalar
@@ -1173,13 +1139,5 @@ contract PlonkVerifier {
         res := mload(mPtr)
       }
     }
-    if (!success) {
-      emit VerificationFailed(msg.sender);
-      return false;
-    }
-    strBytes[bytes(strBytes).length - 1] = '1';
-    nonces[msg.sender] = string(strBytes);
-    emit ProofVerified(msg.sender);
-    return true;
   }
 }

@@ -4,6 +4,8 @@ import {ethers} from "hardhat";
 
 describe("IdentityRegistry", function () {
 
+    const ZERO_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
     async function deployRegistry() {
 
         // Contracts are deployed using the first signer/account by default
@@ -13,62 +15,92 @@ describe("IdentityRegistry", function () {
         const identityInstance = await IdentityRegistry.deploy();
 
 
-        const IdentityManager = await ethers.getContractFactory("IdentityManager");
-        const managerInstance = await IdentityManager.deploy(identityInstance.target);
+        const IdentityResolver = await ethers.getContractFactory("IdentityResolver");
+        const resolverInstance = await IdentityResolver.deploy(identityInstance.target);
 
-        const verify = await ethers.getContractFactory("Verifier");
-        const verifyInstance = await verify.deploy();
-
-        return {identityInstance, owner, otherAccount, managerInstance, verifyInstance};
+        return {identityInstance, owner, otherAccount, resolverInstance};
     }
 
     describe("Registry", function () {
-        it("Should set record", async function () {
-            const {identityInstance, owner, managerInstance} = await loadFixture(deployRegistry);
+        it("Should set the owner for node", async function () {
+            const {identityInstance, owner} = await loadFixture(deployRegistry);
 
-            await identityInstance.register(owner.address, managerInstance.target, {from: owner.address})
+            let addr = '0x0000000000000000000000000000000000001234'
 
-            const res = await identityInstance.owner(owner.address);
-            expect(res).to.equal(owner.address);
+            await identityInstance.setOwner(ZERO_HASH, addr, {from: owner.address})
+
+            const res = await identityInstance.owner(ZERO_HASH);
+            expect(res).to.equal(addr);
         });
 
         it("Should set the resolver for node and emit event when resolver is set.", async function () {
-            const {identityInstance, owner, managerInstance} = await loadFixture(deployRegistry);
+            const {identityInstance, owner, resolverInstance} = await loadFixture(deployRegistry);
 
-            await identityInstance.register(owner.address, managerInstance.target, {from: owner.address})
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
 
-            const res = await identityInstance.owner(owner.address);
+            const res = await identityInstance.owner(ZERO_HASH);
             expect(res).to.equal(owner.address);
 
-            // await expect(identityInstance.setResolver(ZERO_HASH, managerInstance.target, {from: owner.address}))
-            //     .to.emit(identityInstance, "NewResolver")
-            //     .withArgs(ZERO_HASH, managerInstance.target);
-            //
-            // const resolverRes = await identityInstance.resolver(ZERO_HASH);
-            // expect(resolverRes).to.equal(managerInstance.target);
+            await expect(identityInstance.setResolver(ZERO_HASH, resolverInstance.target, {from: owner.address}))
+                .to.emit(identityInstance, "NewResolver")
+                .withArgs(ZERO_HASH, resolverInstance.target);
+
+            const resolverRes = await identityInstance.resolver(ZERO_HASH);
+            expect(resolverRes).to.equal(resolverInstance.target);
         });
 
 
+        it('should allow setting the TTL', async () => {
+
+            const {identityInstance, owner} = await loadFixture(deployRegistry);
+
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
+
+            const res = await identityInstance.owner(ZERO_HASH);
+            expect(res).to.equal(owner.address);
+
+
+            await identityInstance.setTTL(ZERO_HASH, 3600, {from: owner.address})
+            let resp: bigint = await identityInstance.ttl(ZERO_HASH)
+            expect(Number(resp)).to.equal(3600);
+        });
+        it('should prevent setting the TTL by non-owners', async () => {
+            const {identityInstance, owner, otherAccount} = await loadFixture(deployRegistry);
+
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
+
+            const res = await identityInstance.owner(ZERO_HASH);
+            expect(res).to.equal(owner.address);
+            console.log('owner', owner.address)
+            console.log('otherAccount', otherAccount.address)
+            try {
+                await identityInstance.setTTL(ZERO_HASH, 3600, {from: otherAccount.address})
+            } catch (err) {
+                expect(err).to.be.an.instanceOf(TypeError);
+
+                expect(err.code).to.equal('INVALID_ARGUMENT');
+            }
+        })
     });
     describe("Resolver", function () {
         it("Should set the the key for node", async function () {
-            const {identityInstance, owner, managerInstance} = await loadFixture(deployRegistry);
+            const {identityInstance, owner, resolverInstance} = await loadFixture(deployRegistry);
 
-            await identityInstance.register(owner.address, managerInstance.target, {from: owner.address})
-            await managerInstance.setText('testKey', 'testValue', {from: owner.address})
-            const res = await managerInstance.text(owner.address, 'testKey');
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
+            await identityInstance.setResolver(ZERO_HASH, resolverInstance.target, {from: owner.address})
+
+            await resolverInstance.setText(ZERO_HASH, 'testKey', 'testValue', {from: owner.address})
+            const res = await resolverInstance.text(ZERO_HASH, 'testKey');
             expect(res).to.equal('testValue');
         });
 
         it("Should prevent setting the key for node by non-owners ", async function () {
-            const {identityInstance, owner, otherAccount, managerInstance} = await loadFixture(deployRegistry);
+            const {identityInstance, owner, resolverInstance, otherAccount} = await loadFixture(deployRegistry);
 
-            await identityInstance.register(owner.address, managerInstance.target, {from: owner.address})
-            await managerInstance.setText('testKey', 'testValue', {from: owner.address})
-            const res = await managerInstance.text(owner.address, 'testKey');
-            expect(res).to.equal('testValue');
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
+            await identityInstance.setResolver(ZERO_HASH, resolverInstance.target, {from: owner.address})
             try {
-                await managerInstance.setText('testKey', 'testValue', {from: otherAccount.address})
+                await resolverInstance.setText(ZERO_HASH, 'testKey', 'testValue', {from: otherAccount.address})
 
             } catch (err) {
                 expect(err).to.be.an.instanceOf(TypeError);
@@ -83,9 +115,7 @@ describe("IdentityRegistry", function () {
             /*
             Here we can keep private claims (ipfs storage link) with a unique key as well.
              */
-            const {identityInstance, owner, managerInstance} = await loadFixture(deployRegistry);
-
-            await identityInstance.register(owner.address, managerInstance.target, {from: owner.address})
+            const {identityInstance, owner, resolverInstance} = await loadFixture(deployRegistry);
             const dummyClaim = {
                 "type": "Integer",
                 "timestamp": 123456789,
@@ -93,47 +123,25 @@ describe("IdentityRegistry", function () {
                 "number": 18,
                 "threshold": 10,
             }
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
+            await identityInstance.setResolver(ZERO_HASH, resolverInstance.target, {from: owner.address})
 
+            await resolverInstance.setText(ZERO_HASH, 'testKey', JSON.stringify(dummyClaim), {from: owner.address})
 
-            await managerInstance.setText('testKey', JSON.stringify(dummyClaim), {from: owner.address})
-
-            expect(await managerInstance.text(owner.address, 'testKey')).to.equal(JSON.stringify(dummyClaim));
+            expect(await resolverInstance.text(ZERO_HASH, 'testKey')).to.equal(JSON.stringify(dummyClaim));
 
 
         });
+        it("Should keep merkle root as contentHash", async function () {
+            const {identityInstance, owner, resolverInstance} = await loadFixture(deployRegistry);
 
+            await identityInstance.setOwner(ZERO_HASH, owner.address, {from: owner.address})
+            await identityInstance.setResolver(ZERO_HASH, resolverInstance.target, {from: owner.address})
+
+            await resolverInstance.setContenthash(ZERO_HASH, '0x1234567890123456789012345678901234567890', {from: owner.address})
+            expect(await resolverInstance.contenthash(ZERO_HASH)).to.equal('0x1234567890123456789012345678901234567890');
+
+
+        });
     });
-    describe("VerifySignature", function () {
-        it("Check signature", async function () {
-            const {verifyInstance} = await loadFixture(deployRegistry);
-
-            const accounts = await ethers.getSigners()
-
-            const signer = accounts[0]
-            const message = "Hello"
-
-            const hash = await verifyInstance.getMessageHash(message)
-            const bytes = new Uint8Array(hash.length / 2);
-            for (let i = 0; i < hash.length; i += 2) {
-                bytes[i / 2] = parseInt(hash.substring(i, 2), 16);
-            }
-
-            const sig = await signer.signMessage(bytes)
-
-            const ethHash = await verifyInstance.getEthSignedMessageHash(hash)
-
-            console.log("signer          ", signer.address)
-            console.log("recovered signer", await verifyInstance.recoverSigner(ethHash, sig))
-
-            // Correct signature and message returns true
-            expect(
-                await verifyInstance.verify(signer.address, message, sig)
-            ).to.equal(true)
-
-            // Incorrect message returns false
-            expect(
-                await verifyInstance.verify(signer.address, message + 'a', sig)
-            ).to.equal(false)
-        })
-    })
 });

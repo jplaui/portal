@@ -1,13 +1,16 @@
 package client
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"fmt"
 	"go-sdk/contracts/IdentityManager"
 	"log"
 	"math/big"
 	"time"
+	"unsafe"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type ManagerClient struct {
@@ -19,9 +22,16 @@ type ClaimMeta struct {
 	Value     string  `json:"value"`
 	Statement string  `json:"statement"`
 	Timestamp big.Int `json:"timestamp"`
-	Id        string  `json:"id"`
+	Id        int     `json:"id"`
 	Version   int     `json:"version"`
 }
+
+func (s *ClaimMeta) Size() int {
+	size := int(unsafe.Sizeof(*s))
+	// size += len(s.F)
+	return size
+}
+
 type PublicClaim struct {
 	ClaimMeta ClaimMeta
 }
@@ -45,18 +55,30 @@ type Attestation struct {
 	Attestor  string
 	Timestamp big.Int
 	ExpiresAt big.Int
-	ClaimId   string
+	Id        int
+	ClaimId   int
+}
+
+func (s *Attestation) Size() int {
+	size := int(unsafe.Sizeof(*s))
+	// size += len(s.F)
+	return size
+}
+func (s *Revocation) Size() int {
+	size := int(unsafe.Sizeof(*s))
+	// size += len(s.F)
+	return size
 }
 
 type Revocation struct {
 	AttestedTo    common.Address
-	AttestationId string
+	AttestationId *big.Int
 	Status        string
 	Timestamp     *big.Int
 }
 
-func NewAttestation(signature []byte, attestor string, timestamp big.Int, expiresAt big.Int, claimId string) *Attestation {
-	return &Attestation{Signature: signature, Attestor: attestor, Timestamp: timestamp, ExpiresAt: expiresAt, ClaimId: claimId}
+func NewAttestation(signature []byte, attestor string, timestamp big.Int, expiresAt big.Int, id int, claimId int) *Attestation {
+	return &Attestation{Signature: signature, Attestor: attestor, Timestamp: timestamp, ExpiresAt: expiresAt, Id: id, ClaimId: claimId}
 }
 
 func NewManagerClient(contractAddr string, reader TxReader, ipfsConn string) *ManagerClient {
@@ -73,55 +95,80 @@ func NewManagerClient(contractAddr string, reader TxReader, ipfsConn string) *Ma
 	}
 }
 
+var gasPrice = big.NewInt(2800000000)
+
+func WeiToEther(wei uint64) *big.Float {
+	weiInEther := new(big.Float).SetUint64(wei)
+	ether := new(big.Float).Quo(weiInEther, big.NewFloat(1e18))
+	return ether
+}
+func CalculateGasUsage(operation string, receipt *types.Receipt) {
+	fmt.Printf("%s Transaction Cost (Wei): %d \n", operation, receipt.GasUsed)
+	fmt.Printf("%s Transaction Cost (Ether): %s\n", operation, WeiToEther(receipt.GasUsed).String())
+	total_cost := new(big.Int)
+	total_gas := new(big.Int).SetUint64(receipt.GasUsed)
+	total_cost.Mul(total_gas, gasPrice)
+	fmt.Printf("Total Cost (Ether): %s\n", WeiToEther(total_cost.Uint64()).String())
+}
+
 func SetPublicClaim(client *ManagerClient, signer *Signer, key string, value string, statement string) (*types.Receipt, error) {
 	auth := signer.BindTxOpts()
 	// convert time now to unix timestamp
 
 	timestamp := time.Now().Unix()
 	timeInBig := new(big.Int).SetInt64(timestamp)
-
-	tx, err := client.Manager.SetPublicClaim(auth, key, value, statement, timeInBig)
+	id := timeInBig
+	t1 := time.Now()
+	tx, err := client.Manager.SetPublicClaim(auth, key, value, statement, timeInBig, id)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("setPublicClaim tx size:", tx.Size())
 
 	receipt, err := signer.WaitForReceipt(tx.Hash())
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("setting Public Claim took:", time.Since(t1))
+	CalculateGasUsage("Plublic claim deployment", receipt)
 
 	return receipt, nil
 }
 
 func GetPublicClaim(client *ManagerClient, key string) (*PublicClaim, error) {
+	t1 := time.Now()
 	claim, err := client.Manager.PublicClaims(&bind.CallOpts{}, key)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("gettting public claim took:", time.Since(t1))
 	return NewPublicClaim(ClaimMeta{
 		Value:     claim.Value,
 		Statement: claim.Statement,
 		Timestamp: *claim.Timestamp,
-		Id:        key,
-		Version:   int(claim.Version.Int64()),
+		Id:        int(claim.Id.Int64()),
 	}), nil
 }
 
 func SetPrivateClaim(client *ManagerClient, signer *Signer, key string, value string, statement string, ipfsURI string,
 	eventHash string) (*types.Receipt, error) {
+	t1 := time.Now()
 	auth := signer.BindTxOpts()
 	timestamp := time.Now().Unix()
 	timeInBig := new(big.Int).SetInt64(timestamp)
-	tx, err := client.Manager.SetPrivateClaim(auth, key, value, statement, ipfsURI, eventHash, timeInBig)
+	id := timeInBig
+	tx, err := client.Manager.SetPrivateClaim(auth, key, value, statement, ipfsURI, eventHash, timeInBig, id)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("setPrivateClaim tx size:", tx.Size())
 
 	receipt, err := signer.WaitForReceipt(tx.Hash())
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("getting private claim took:", time.Since(t1))
 	return receipt, nil
 }
 func GetPrivateClaim(client *ManagerClient, key string) (*PrivateClaim, error) {
@@ -133,7 +180,7 @@ func GetPrivateClaim(client *ManagerClient, key string) (*PrivateClaim, error) {
 		Value:     claim.Value,
 		Statement: claim.Statement,
 		Timestamp: *claim.Timestamp,
-		Id:        key,
+		Id:        int(claim.Id.Int64()),
 		Version:   int(claim.Version.Int64()),
 	}, claim.IpfsCircuitMetadata, claim.EventHash), nil
 }
@@ -155,11 +202,13 @@ func GetPrivateClaim(client *ManagerClient, key string) (*PrivateClaim, error) {
 //}
 
 func GetClaimURI(client *ManagerClient, claimHash string) (string, error) {
+	t1 := time.Now()
 	val, err := client.Manager.IpfsClaims(nil, claimHash)
 	if err != nil {
 		return "", err
 	}
 
+	fmt.Println("getting claim from IPFS took;", time.Since(t1))
 	return val, nil
 }
 
@@ -181,43 +230,24 @@ func setClaimURI(client *ManagerClient, signer *Signer, claimHash string, uri st
 
 func PublishClaim(client *ManagerClient, signer *Signer, key string, value []byte) (*types.Receipt, error) {
 	//write claim first on ipfs
+	t1 := time.Now()
 	resp, err := client.IpfsClient.AddAndPublish(value)
 	if err != nil {
 		return nil, err
 	}
 	ipnsPath := resp["Name"]
-
+	fmt.Println("setting claim on IPFS took", time.Since(t1))
 	return setClaimURI(client, signer, key, ipnsPath)
 }
 
-func GetIpfsClaim(client *ManagerClient, claimHash string) (*PublicClaim, error) {
-	uri, err := GetClaimURI(client, claimHash)
-	if err != nil {
-		return nil, err
-	}
-	data, err := client.IpfsClient.Retrieve(uri, false)
-	if err != nil {
-		return nil, err
-	}
-	// convert string timestamp to big.Int
-	timestamp, _ := new(big.Int).SetString(data["timestamp"], 10)
-	return NewPublicClaim(ClaimMeta{
-		Value:     data["value"],
-		Statement: data["statement"],
-		Timestamp: *timestamp,
-		Id:        claimHash,
-	}), nil
-
-}
-
 func SetAttestation(client *ManagerClient, signer *Signer, key string, attestor common.Address,
-	signature []byte, expires big.Int, claimId string) (*types.Receipt, error) {
+	signature []byte, expires big.Int, claimId big.Int) (*types.Receipt, error) {
 	auth := signer.BindTxOpts()
-	// create unique id for attestation from claimId and timestamp
-	tx, err := client.Manager.SetAttestation(auth, key, attestor, &expires, signature, claimId)
+	tx, err := client.Manager.SetAttestation(auth, key, attestor, &expires, signature, &claimId, &claimId)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("attetstation tx size:", tx.Size())
 
 	receipt, err := signer.WaitForReceipt(tx.Hash())
 	if err != nil {
@@ -238,15 +268,18 @@ func GetAttestation(client *ManagerClient, key string) (*Attestation, error) {
 		attestation.Attestor.Hex(),
 		*attestation.Timestamp,
 		*attestation.Expires,
-		attestation.ClaimId), nil
+		int(attestation.Id.Int64()),
+		int(attestation.ClaimId.Int64())), nil
 }
 
-func Revoke(client *ManagerClient, signer *Signer, key string, attestedTo common.Address, reason string) (*types.Receipt, error) {
+func Revoke(client *ManagerClient, signer *Signer, key string, attestedTo common.Address,
+	id *big.Int, reason string) (*types.Receipt, error) {
 	auth := signer.BindTxOpts()
-	tx, err := client.Manager.RevokeAttestation(auth, key, reason, attestedTo, key)
+	tx, err := client.Manager.RevokeAttestation(auth, key, reason, attestedTo, id)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("revocation tx size:", tx.Size())
 
 	receipt, err := signer.WaitForReceipt(tx.Hash())
 	if err != nil {

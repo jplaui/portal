@@ -14,12 +14,7 @@ contract IdentityRegistry is IdentityInterface {
     address public owner;
     mapping(address => address) public identities;
     mapping(string => Circuit) public circuits;
-    bool public running = true;
 
-    modifier onlyRunning {
-        require(running, "Contract is not running");
-        _;
-    }
 
     modifier authorised {
         address node = msg.sender;
@@ -32,16 +27,12 @@ contract IdentityRegistry is IdentityInterface {
         _;
     }
 
-
     constructor() {
         owner = msg.sender;
     }
 
-    function destroy() external onlyOwner {
-        running = false;
-    }
 
-    function register(address identityManagerContract, bytes memory signature) external onlyRunning {
+    function register(address identityManagerContract, bytes memory signature) external {
         //check if user is already registered, no need to calculate hash if its already registered
         if (identities[msg.sender] != address(0x0)) {
             revert("Already registered. Use setManager call to update manager address.");
@@ -57,7 +48,7 @@ contract IdentityRegistry is IdentityInterface {
     }
 
 
-    function setManager(address manager) public onlyRunning authorised {
+    function setManager(address manager) public authorised {
         identities[msg.sender] = manager;
         emit NewManager(msg.sender, manager);
     }
@@ -76,12 +67,12 @@ contract IdentityRegistry is IdentityInterface {
         return identities[node];
     }
 
-    function deregister(address node) external onlyRunning authorised {
+    function deregister(address node) external authorised {
         delete identities[node];
     }
 
     function setCircuit(string memory _circuitId, string memory _deploymentType,
-        address _deploymentAddress, string memory _ipfsHash) external onlyRunning onlyOwner {
+        address _deploymentAddress, string memory _ipfsHash) external onlyOwner {
         circuits[_circuitId] = Circuit(_deploymentType, _deploymentAddress, _ipfsHash);
     }
 

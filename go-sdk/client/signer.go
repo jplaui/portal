@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -74,10 +73,9 @@ func (s *Signer) BindTxOpts() *bind.TransactOpts {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("SuggestGasPrice %d\n", gasPrice)
 	/* increase gas price by 50% */
-	//gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(15))
-	//gasPrice = new(big.Int).Div(gasPrice, big.NewInt(10))
+	gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(15))
+	gasPrice = new(big.Int).Div(gasPrice, big.NewInt(10))
 
 	chainId, _ := s.Client.ChainID(context.Background())
 	auth, _ := bind.NewKeyedTransactorWithChainID(s.PrivateKey, chainId)
